@@ -131,7 +131,21 @@ static int compsec_bprm_set_creds(struct linux_binprm *bprm)
 /* Prepare creds from old task to a new one. */
 static int compsec_cred_prepare(struct cred *new, const struct cred *old, gfp_t gfp)
 {
+    if (!old || !new) {
+        return 0;
+    }
+
     const struct task_blob *old_blob = old->security;
+    if (!old_blob) {
+        struct task_blob *new_blob = kzalloc(sizeof(*new_blob), gfp);
+        if (!new_blob) {
+            return -ENOMEM;
+        }
+        new_blob->proc_class = 0;
+        new->security = new_blob;
+        return 0;
+    }
+
     struct task_blob *new_blob = kmemdup(old_blob, sizeof(*new_blob), gfp);
     if (!new_blob) {
         return -ENOMEM;
