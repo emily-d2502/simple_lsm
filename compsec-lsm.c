@@ -135,20 +135,19 @@ static int compsec_cred_prepare(struct cred *new, const struct cred *old, gfp_t 
         return 0;
     }
 
+    struct task_blob *new_blob;
     const struct task_blob *old_blob = old->security;
     if (!old_blob) {
-        struct task_blob *new_blob = kzalloc(sizeof(*new_blob), gfp);
-        if (!new_blob) {
-            return -ENOMEM;
-        }
-        new_blob->proc_class = 0;
-        new->security = new_blob;
-        return 0;
+        new_blob = kzalloc(sizeof(*new_blob), gfp);
+    } else {
+        new_blob = kmemdup(old_blob, sizeof(*new_blob), gfp);
     }
 
-    struct task_blob *new_blob = kmemdup(old_blob, sizeof(*new_blob), gfp);
     if (!new_blob) {
         return -ENOMEM;
+    }
+    if (!old_blob) {
+        new_blob->proc_class = 0;
     }
     new->security = new_blob;
 	return 0;
@@ -200,7 +199,7 @@ static int compsec_file_permission(struct file *file, int mask)
             return 0;
         }
         printk(COMPSEC_LOG  "Read access refused for process (%d) "
-                            "due to Bel-LaPadula module.\n"
+                            "due to Bel-LaPadula module. "
                             "file's class %u > process's class %u.\n",
                             current->pid, file_class, blob->proc_class);
     }
@@ -211,7 +210,7 @@ static int compsec_file_permission(struct file *file, int mask)
             return 0;
         }
         printk(COMPSEC_LOG  "Write access refused for process (%d) "
-                            "due to Bel-LaPadula module.\n"
+                            "due to Bel-LaPadula module. "
                             "file's class %u < process's class %u.\n",
                             current->pid, file_class, blob->proc_class);
     }
