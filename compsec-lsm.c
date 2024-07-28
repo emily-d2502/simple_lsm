@@ -113,8 +113,9 @@ static int compsec_bprm_set_creds(struct linux_binprm *bprm)
 {
     // Get bin's class
 	unsigned int bin_class;
-    if (vfs_getxattr(dp, "security.compsec", bin_class, sizeof(unsigned int)) < 0) {
-        *bin_class = 0;
+    struct dentry *dp = bprm->file->f_path.dentry;
+    if (vfs_getxattr(dp, "security.compsec", &bin_class, sizeof(unsigned int)) < 0) {
+        bin_class = 0;
     }
 
     // Set process's class = bin's class
@@ -146,7 +147,7 @@ static void compsec_cred_transfer(struct cred *new, const struct cred *old)
     if (!old || !new) {
         return;
     }
-    *(new->security) = *(old->security);
+    *(struct task_blob *)(new->security) = *(struct task_blob *)(old->security);
 }
 
 
@@ -155,7 +156,7 @@ static int compsec_file_permission(struct file *file, int mask)
 {
     // Get target file's dentry
     struct dentry *dp = file->f_path.dentry;
-    if(dentry->d_inode->i_rdev) {
+    if(dp->d_inode->i_rdev) {
         // We are not enforcing on char/block devices
         return 0;
     }
@@ -167,8 +168,8 @@ static int compsec_file_permission(struct file *file, int mask)
 
     // Get target file's class
 	unsigned int file_class;
-    if (vfs_getxattr(dp, "security.compsec", file_class, sizeof(unsigned int)) < 0) {
-        *file_class = 0;
+    if (vfs_getxattr(dp, "security.compsec", &file_class, sizeof(unsigned int)) < 0) {
+        file_class = 0;
     }
 
     // Get current task's blob
