@@ -1,16 +1,35 @@
 
 
 /*
- *  Technion CS 236652 Computer Security - Skeleton Security Module
- *
- *  This file contains the Computer Security hook function implementations.
- *
- *  Author:  Sara Bitan, <sarab@cs.technion.ac.il>
+ *  Copyright (C) 2024 Emily Dror <emily.d@campus.technion.ac.il>
+ *      Exercise 3 - Technion CS 236652 Computer Security
  *
  *	This program is free software; you can redistribute it and/or modify
  *	it under the terms of the GNU General Public License version 2,
  *	as published by the Free Software Foundation.
+ *
+ *  Author:
+ *          Emily Dror <emily.d@campus.technion.ac.il>
  */
+
+
+/*
+ * Inode compsec data
+ */
+struct inode_compsec {
+	unsigned int    cmpx_inode;	    /* file classification */
+};
+
+
+/*
+ * Task compsec data
+ */
+struct task_compsec {
+	unsigned int    cmpx_task;	    /* classification of task */
+};
+
+#define COMPSEC_ERROR (-1)
+#define COMPSEC_RET_0 { return 0; }
 
 #include <linux/init.h>
 #include <linux/kd.h>
@@ -72,119 +91,72 @@
 #include <linux/user_namespace.h>
 #include <linux/export.h>
 
-
-#ifdef CONFIG_SECURITY_COMPSEC 
+#ifdef CONFIG_SECURITY_COMPSEC
 
 extern struct security_operations *security_ops;
 
-struct file_accesses {
-  unsigned int read;
-  unsigned int write;
-};
-
-
-static int compsec_set_mnt_opts(struct super_block *sb,
-				struct security_mnt_opts *opts)
+/**
+ * cmpx_fetch - Fetch the compsec classification from a file.
+ * @ip: a pointer to the inode
+ * @dp: a pointer to the dentry
+ *
+ * Returns a file's classification.
+ */
+static unsigned int cmpx_fetch(const char *name, struct inode *ip, struct dentry *dp)
 {
-  return 0;
+	int             retval;
+	unsigned int    class;
+
+	if (ip->i_op->getxattr == NULL) {
+		return COMPSEC_ERROR;
+    }
+
+	retval = ip->i_op->getxattr(dp, name, &class, sizeof(unsigned int));
+	if (retval < 0) {
+		return retval;
+    }
+	return class;
 }
 
-static void compsec_sb_clone_mnt_opts(const struct super_block *oldsb,
-				      struct super_block *newsb)
-{
-}
+/* ---------------------------------------------------------------------------------------------- */
 
-static int compsec_parse_opts_str(char *options,
-				  struct security_mnt_opts *opts)
-{
-  return 0;
-}
+static int compsec_set_mnt_opts(struct super_block *sb, struct security_mnt_opts *opts) COMPSEC_RET_0
+static void compsec_sb_clone_mnt_opts(const struct super_block *oldsb, struct super_block *newsb) {}
+static int compsec_parse_opts_str(char *options, struct security_mnt_opts *opts) COMPSEC_RET_0
+static int compsec_sb_show_options(struct seq_file *m, struct super_block *sb) COMPSEC_RET_0
 
-
-
-static int compsec_sb_show_options(struct seq_file *m, struct super_block *sb)
-{
-  return 0;
-}
+/* ---------------------------------------------------------------------------------------------- */
 /* Hook functions begin here. */
-
-static int compsec_ptrace_access_check(struct task_struct *child,
-				       unsigned int mode)
-{
-  return 0;
-}
-
-static int compsec_ptrace_traceme(struct task_struct *parent)
-{
-  return 0;
-}
-
+static int compsec_ptrace_access_check(struct task_struct *child, unsigned int mode) COMPSEC_RET_0
+static int compsec_ptrace_traceme(struct task_struct *parent) COMPSEC_RET_0
 static int compsec_capget(struct task_struct *target, kernel_cap_t *effective,
-			  kernel_cap_t *inheritable, kernel_cap_t *permitted)
-{
-  return 0;
-}
-
-static int compsec_capset(struct cred *new, const struct cred *old,
-			  const kernel_cap_t *effective,
-			  const kernel_cap_t *inheritable,
-			  const kernel_cap_t *permitted)
-{
-  return 0;
-}
-
-/*
- * (This comment used to live with the compsec_task_setuid hook,
- * which was removed).
- *
- * Since setuid only affects the current process, and since the SELinux
- * controls are not based on the Linux identity attributes, SELinux does not
- * need to control this operation.  However, SELinux does control the use of
- * the CAP_SETUID and CAP_SETGID capabilities using the capable hook.
- */
-
+                kernel_cap_t *inheritable, kernel_cap_t *permitted) COMPSEC_RET_0
+static int compsec_capset(struct cred *new, const struct cred *old, const kernel_cap_t *effective,
+                const kernel_cap_t *inheritable, const kernel_cap_t *permitted) COMPSEC_RET_0
 static int compsec_capable(struct task_struct *tsk, const struct cred *cred,
-			   struct user_namespace *ns, int cap, int audit)
-{
-  return 0;
-}
+			    struct user_namespace *ns, int cap, int audit) COMPSEC_RET_0
+static int compsec_quotactl(int cmds, int type, int id, struct super_block *sb) COMPSEC_RET_0
+static int compsec_quota_on(struct dentry *dentry) COMPSEC_RET_0
+static int compsec_syslog(int type) COMPSEC_RET_0
+static int compsec_vm_enough_memory(struct mm_struct *mm, long pages) COMPSEC_RET_0
 
-static int compsec_quotactl(int cmds, int type, int id, struct super_block *sb)
-{
-  return 0;
-}
+/* ---------------------------------------------------------------------------------------------- */
+/* BPRM hooks */
 
-static int compsec_quota_on(struct dentry *dentry)
+/*
+ * compsec_bprm_set_creds - set creds for exec
+ * @bprm: the exec information
+ *
+ * Returns 0 if it gets a blob, -ENOMEM otherwise
+ */
+static int compsec_bprm_set_creds(struct linux_binprm *bprm)
 {
-  return 0;
-}
-
-static int compsec_syslog(int type)
-{
-  return 0;
+	return 0;
 }
 
 /*
- * Check that a process has enough memory to allocate a new virtual
- * mapping. 0 means there is enough memory for the allocation to
- * succeed and -ENOMEM implies there is not.
- *
- * Do not audit the selinux permission check, as this is applied to all
- * processes that allocate mappings.
+ * compsec_bprm_check_security
  */
-static int compsec_vm_enough_memory(struct mm_struct *mm, long pages)
-{
-  return 0;
-}
-
-/* binprm security operations */
-
-static int compsec_bprm_set_creds(struct linux_binprm *bprm)
-
-{
-  return 0;
-}
-
 static int compsec_bprm_check_security(struct linux_binprm *bprm)
 {
   if (bprm->file->f_dentry->d_inode->i_ino == (unsigned long) 280615) {
@@ -194,6 +166,9 @@ static int compsec_bprm_check_security(struct linux_binprm *bprm)
   return 0;
 }
 
+/*
+ * compsec_bprm_secureexec
+ */
 static int compsec_bprm_secureexec(struct linux_binprm *bprm)
 {
   return 0;
@@ -204,6 +179,7 @@ static int compsec_bprm_secureexec(struct linux_binprm *bprm)
  */
 static void compsec_bprm_committing_creds(struct linux_binprm *bprm)
 {
+
 }
 
 /*
@@ -212,58 +188,24 @@ static void compsec_bprm_committing_creds(struct linux_binprm *bprm)
  */
 static void compsec_bprm_committed_creds(struct linux_binprm *bprm)
 {
+
 }
 
+/* ---------------------------------------------------------------------------------------------- */
 /* superblock security operations */
 
-static int compsec_sb_alloc_security(struct super_block *sb)
-{
-  return 0;
-}
+static int compsec_sb_alloc_security(struct super_block *sb) COMPSEC_RET_0
+static void compsec_sb_free_security(struct super_block *sb) {}
+static inline int compsec_option(char *option, int len) COMPSEC_RET_0
+static int compsec_sb_copy_data(char *orig, char *copy) COMPSEC_RET_0
+static int compsec_sb_remount(struct super_block *sb, void *data) COMPSEC_RET_0
+static int compsec_sb_kern_mount(struct super_block *sb, int flags, void *data) COMPSEC_RET_0
+static int compsec_sb_statfs(struct dentry *dentry) COMPSEC_RET_0
+static int compsec_mount(char *dev_name, struct path *path, char *type, unsigned long flags,
+                                                                        void *data) COMPSEC_RET_0
+static int compsec_umount(struct vfsmount *mnt, int flags) COMPSEC_RET_0
 
-static void compsec_sb_free_security(struct super_block *sb)
-{
-}
-
-static inline int compsec_option(char *option, int len)
-{
-  return 0;
-}
-
-static int compsec_sb_copy_data(char *orig, char *copy)
-{
-  return 0;
-}
-
-static int compsec_sb_remount(struct super_block *sb, void *data)
-{
-  return 0;
-}
-
-static int compsec_sb_kern_mount(struct super_block *sb, int flags, void *data)
-{
-  return 0;
-}
-
-static int compsec_sb_statfs(struct dentry *dentry)
-{
-  return 0;
-}
-
-static int compsec_mount(char *dev_name,
-			 struct path *path,
-			 char *type,
-			 unsigned long flags,
-			 void *data)
-{
-  return 0;
-}
-
-static int compsec_umount(struct vfsmount *mnt, int flags)
-{
-  return 0;
-}
-
+/* ---------------------------------------------------------------------------------------------- */
 /* inode security operations */
 
 static int compsec_inode_alloc_security(struct inode *inode)
@@ -284,135 +226,43 @@ static void compsec_inode_free_security(struct inode *inode)
 }
 
 static int compsec_inode_init_security(struct inode *inode, struct inode *dir,
-				       const struct qstr *qstr, char **name,
-				       void **value, size_t *len)
-{
-  return 0;
-}
-
-static int compsec_inode_create(struct inode *dir, struct dentry *dentry, int mask)
-{
-  return 0;
-}
-
-static int compsec_inode_link(struct dentry *old_dentry, struct inode *dir, struct dentry *new_dentry)
-{
-  return 0;	
-}
-
-static int compsec_inode_unlink(struct inode *dir, struct dentry *dentry)
-{
-  return 0;
-}
-
-static int compsec_inode_symlink(struct inode *dir, struct dentry *dentry, const char *name)
-{
-  return 0;
-}
-
-static int compsec_inode_mkdir(struct inode *dir, struct dentry *dentry, int mask)
-{
-  return 0;
-}
-
-static int compsec_inode_rmdir(struct inode *dir, struct dentry *dentry)
-{
-  return 0;
-}
-
-static int compsec_inode_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
-{
-  return 0;
-}
-
+            const struct qstr *qstr, char **name, void **value, size_t *len) COMPSEC_RET_0
+static int compsec_inode_create(struct inode *dir, struct dentry *dentry, int mask) COMPSEC_RET_0
+static int compsec_inode_link(struct dentry *old_dentry, struct inode *dir, struct dentry *new_dentry) COMPSEC_RET_0
+static int compsec_inode_unlink(struct inode *dir, struct dentry *dentry) COMPSEC_RET_0
+static int compsec_inode_symlink(struct inode *dir, struct dentry *dentry, const char *name) COMPSEC_RET_0
+static int compsec_inode_mkdir(struct inode *dir, struct dentry *dentry, int mask) COMPSEC_RET_0
+static int compsec_inode_rmdir(struct inode *dir, struct dentry *dentry) COMPSEC_RET_0
+static int compsec_inode_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev) COMPSEC_RET_0
 static int compsec_inode_rename(struct inode *old_inode, struct dentry *old_dentry,
-				struct inode *new_inode, struct dentry *new_dentry)
-{
-  return 0;
-}
-
-static int compsec_inode_readlink(struct dentry *dentry)
-{
-  return 0;
-}
-
-static int compsec_inode_follow_link(struct dentry *dentry, struct nameidata *nameidata)
-{
-  return 0;
-}
-
-static int compsec_inode_permission(struct inode *inode, int mask)
-{
-  return 0;
-}
-
-static int compsec_inode_setattr(struct dentry *dentry, struct iattr *iattr)
-{
-  return 0;
-}
-
-static int compsec_inode_getattr(struct vfsmount *mnt, struct dentry *dentry)
-{
-  return 0;
-}
-
-
-
+				struct inode *new_inode, struct dentry *new_dentry) COMPSEC_RET_0
+static int compsec_inode_readlink(struct dentry *dentry) COMPSEC_RET_0
+static int compsec_inode_follow_link(struct dentry *dentry, struct nameidata *nameidata) COMPSEC_RET_0
+static int compsec_inode_permission(struct inode *inode, int mask) COMPSEC_RET_0
+static int compsec_inode_setattr(struct dentry *dentry, struct iattr *iattr) COMPSEC_RET_0
+static int compsec_inode_getattr(struct vfsmount *mnt, struct dentry *dentry) COMPSEC_RET_0
 static int compsec_inode_setxattr(struct dentry *dentry, const char *name,
-				  const void *value, size_t size, int flags)
-{
-  return 0;	 
-}
-
+				  const void *value, size_t size, int flags) COMPSEC_RET_0
 static void compsec_inode_post_setxattr(struct dentry *dentry, const char *name,
-					const void *value, size_t size,
-					int flags)
-{
-}
-
-static int compsec_inode_getxattr(struct dentry *dentry, const char *name)
-{
-  return 0;
-}
-
-static int compsec_inode_listxattr(struct dentry *dentry)
-{
-  return 0;
-}
-
-static int compsec_inode_removexattr(struct dentry *dentry, const char *name)
-{
-  return 0;
-}
+					const void *value, size_t size, int flags) {}
+static int compsec_inode_getxattr(struct dentry *dentry, const char *name) COMPSEC_RET_0
+static int compsec_inode_listxattr(struct dentry *dentry) COMPSEC_RET_0
+static int compsec_inode_removexattr(struct dentry *dentry, const char *name) COMPSEC_RET_0
 
 /*
  * Copy the inode security context value to the user.
  *
  * Permission check is handled by compsec_inode_getxattr hook.
  */
-static int compsec_inode_getsecurity(const struct inode *inode, const char *name, void **buffer, bool alloc)
-{
-  return 0;
-}
-
+static int compsec_inode_getsecurity(const struct inode *inode, const char *name, void **buffer,
+                    bool alloc) COMPSEC_RET_0
 static int compsec_inode_setsecurity(struct inode *inode, const char *name,
-				     const void *value, size_t size, int flags)
-{
-  return 0;
-}
+                    const void *value, size_t size, int flags) COMPSEC_RET_0
+static int compsec_inode_listsecurity(struct inode *inode, char *buffer, size_t buffer_size) COMPSEC_RET_0
+static void compsec_inode_getsecid(const struct inode *inode, u32 *secid) {}
 
-static int compsec_inode_listsecurity(struct inode *inode, char *buffer, size_t buffer_size)
-{
-  return 0;
-}
-
-static void compsec_inode_getsecid(const struct inode *inode, u32 *secid)
-{
-}
-
+/* ---------------------------------------------------------------------------------------------- */
 /* file security operations */
-
-
 
 static int compsec_file_permission(struct file *file, int mask)
 
@@ -420,211 +270,81 @@ static int compsec_file_permission(struct file *file, int mask)
   struct inode *inode = file->f_path.dentry->d_inode;
   char* fname = file->f_path.dentry->d_name.name;
   uid_t uid = current_cred()->uid;
-  
+
   if(inode->i_rdev) {
     return 0; // we are not enforcing on char/block devices
   }
   return 0;
 }
 
-static int compsec_file_alloc_security(struct file *file)
-{
-  return 0;
-}
+static int compsec_file_alloc_security(struct file *file) COMPSEC_RET_0
+static void compsec_file_free_security(struct file *file) {}
+static int compsec_file_ioctl(struct file *file, unsigned int cmd, unsigned long arg) COMPSEC_RET_0
+static int compsec_file_mmap(struct file *file, unsigned long reqprot, unsigned long prot,
+                    unsigned long flags, unsigned long addr, unsigned long addr_only) COMPSEC_RET_0
+static int compsec_file_mprotect(struct vm_area_struct *vma, unsigned long reqprot,
+                    unsigned long prot) COMPSEC_RET_0
+static int compsec_file_lock(struct file *file, unsigned int cmd) COMPSEC_RET_0
+static int compsec_file_fcntl(struct file *file, unsigned int cmd, unsigned long arg) COMPSEC_RET_0
+static int compsec_file_set_fowner(struct file *file) COMPSEC_RET_0
+static int compsec_file_send_sigiotask(struct task_struct *tsk, struct fown_struct *fown,
+                    int signum) COMPSEC_RET_0
+static int compsec_file_receive(struct file *file) COMPSEC_RET_0
+static int compsec_dentry_open(struct file *file, const struct cred *cred) COMPSEC_RET_0
 
-static void compsec_file_free_security(struct file *file)
-{
-}
-
-static int compsec_file_ioctl(struct file *file, unsigned int cmd,
-			      unsigned long arg)
-{
-  return 0;
-}
-
-
-static int compsec_file_mmap(struct file *file, unsigned long reqprot,
-			     unsigned long prot, unsigned long flags,
-			     unsigned long addr, unsigned long addr_only)
-{
-  return 0;
-}
-
-static int compsec_file_mprotect(struct vm_area_struct *vma,
-				 unsigned long reqprot,
-				 unsigned long prot)
-{
-  return 0;
-}
-
-static int compsec_file_lock(struct file *file, unsigned int cmd)
-{
-  return 0;
-}
-
-static int compsec_file_fcntl(struct file *file, unsigned int cmd,
-			      unsigned long arg)
-{
-  return 0;
-}
-
-static int compsec_file_set_fowner(struct file *file)
-{
-  return 0;
-}
-
-static int compsec_file_send_sigiotask(struct task_struct *tsk,
-				       struct fown_struct *fown, int signum)
-{
-  return 0;
-}
-
-static int compsec_file_receive(struct file *file)
-{
-  return 0;
-}
-
-static int compsec_dentry_open(struct file *file, const struct cred *cred)
-{
-  return 0;
-}
-
+/* ---------------------------------------------------------------------------------------------- */
 /* task security operations */
 
-static int compsec_task_create(unsigned long clone_flags)
-{
-  return 0;
-}
-
+static int compsec_task_create(unsigned long clone_flags) COMPSEC_RET_0
 /*
  * allocate the SELinux part of blank credentials
  */
-static int compsec_cred_alloc_blank(struct cred *cred, gfp_t gfp)
-{
-  return 0;
-}
-
+static int compsec_cred_alloc_blank(struct cred *cred, gfp_t gfp) COMPSEC_RET_0
 /*
  * detach and free the LSM part of a set of credentials
  */
-static void compsec_cred_free(struct cred *cred)
-{
-}
+static void compsec_cred_free(struct cred *cred) {}
 
 /*
  * prepare a new set of credentials for modification
  */
 static int compsec_cred_prepare(struct cred *new, const struct cred *old,
-				gfp_t gfp)
-{
-  return 0;
-}
-
+				gfp_t gfp) COMPSEC_RET_0
 /*
  * transfer the SELinux data to a blank set of creds
  */
-static void compsec_cred_transfer(struct cred *new, const struct cred *old)
-{
-}
+static void compsec_cred_transfer(struct cred *new, const struct cred *old) {}
 
 /*
  * set the security data for a kernel service
  * - all the creation contexts are set to unlabelled
  */
-static int compsec_kernel_act_as(struct cred *new, u32 secid)
-{
-  return 0;
-}
-
+static int compsec_kernel_act_as(struct cred *new, u32 secid) COMPSEC_RET_0
 /*
  * set the file creation context in a security record to the same as the
  * objective context of the specified inode
  */
-static int compsec_kernel_create_files_as(struct cred *new, struct inode *inode)
-{
-  return 0;
-}
 
-static int compsec_kernel_module_request(char *kmod_name)
-{
-  return 0;
-}
 
-static int compsec_task_setpgid(struct task_struct *p, pid_t pgid)
-{
-  return 0;
-}
-
-static int compsec_task_getpgid(struct task_struct *p)
-{
-  return 0;
-}
-
-static int compsec_task_getsid(struct task_struct *p)
-{
-  return 0;
-}
-
-static void compsec_task_getsecid(struct task_struct *p, u32 *secid)
-{
-}
-
-static int compsec_task_setnice(struct task_struct *p, int nice)
-{
-  return 0;
-}
-
-static int compsec_task_setioprio(struct task_struct *p, int ioprio)
-{
-  return 0;
-}
-
-static int compsec_task_getioprio(struct task_struct *p)
-{
-  return 0;
-}
-
+static int compsec_kernel_create_files_as(struct cred *new, struct inode *inode) COMPSEC_RET_0
+static int compsec_kernel_module_request(char *kmod_name) COMPSEC_RET_0
+static int compsec_task_setpgid(struct task_struct *p, pid_t pgid) COMPSEC_RET_0
+static int compsec_task_getpgid(struct task_struct *p) COMPSEC_RET_0
+static int compsec_task_getsid(struct task_struct *p) COMPSEC_RET_0
+static void compsec_task_getsecid(struct task_struct *p, u32 *secid) {}
+static int compsec_task_setnice(struct task_struct *p, int nice) COMPSEC_RET_0
+static int compsec_task_setioprio(struct task_struct *p, int ioprio) COMPSEC_RET_0
+static int compsec_task_getioprio(struct task_struct *p) COMPSEC_RET_0
 static int compsec_task_setrlimit(struct task_struct *p, unsigned int resource,
-				  struct rlimit *new_rlim)
-{
+        struct rlimit *new_rlim) COMPSEC_RET_0
+static int compsec_task_setscheduler(struct task_struct *p) COMPSEC_RET_0
+static int compsec_task_getscheduler(struct task_struct *p) COMPSEC_RET_0
+static int compsec_task_movememory(struct task_struct *p) COMPSEC_RET_0
+static int compsec_task_kill(struct task_struct *p, struct siginfo *info, int sig, u32 secid) COMPSEC_RET_0
+static int compsec_task_wait(struct task_struct *p) COMPSEC_RET_0
+static void compsec_task_to_inode(struct task_struct *p, struct inode *inode) {}
 
-  return 0;
-}
-
-static int compsec_task_setscheduler(struct task_struct *p)
-{
-  return 0;
-}
-
-static int compsec_task_getscheduler(struct task_struct *p)
-{
-  return 0;
-}
-
-static int compsec_task_movememory(struct task_struct *p)
-{
-  return 0;
-}
-
-static int compsec_task_kill(struct task_struct *p, struct siginfo *info,
-			     int sig, u32 secid)
-{
-  return 0;
-}
-
-static int compsec_task_wait(struct task_struct *p)
-{
-  return 0;
-}
-
-static void compsec_task_to_inode(struct task_struct *p,
-				  struct inode *inode)
-{
-}
-
-
-
-
+/* ---------------------------------------------------------------------------------------------- */
 
 /**
  * compsec_skb_peerlbl_sid - Determine the peer label of a packet
@@ -658,376 +378,94 @@ static void compsec_task_to_inode(struct task_struct *p,
 
 
 /* socket security operations */
-
-
 static int compsec_socket_create(int family, int type,
-				 int protocol, int kern)
-{
-  return 0;
-}
-
+				 int protocol, int kern) COMPSEC_RET_0
 static int compsec_socket_post_create(struct socket *sock, int family,
-				      int type, int protocol, int kern)
-{
-  return 0;
-}
-
+				      int type, int protocol, int kern) COMPSEC_RET_0
 /* Range of port numbers used to automatically bind.
    Need to determine whether we should perform a name_bind
    permission check between the socket and the port number. */
 
-static int compsec_socket_bind(struct socket *sock, struct sockaddr *address, int addrlen)
-{
-  return 0;
-}
-
-static int compsec_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen)
-{
-  return 0;
-}
-
-static int compsec_socket_listen(struct socket *sock, int backlog)
-{
-  return 0;
-}
-
-static int compsec_socket_accept(struct socket *sock, struct socket *newsock)
-{
-  return 0;
-}
-
-static int compsec_socket_sendmsg(struct socket *sock, struct msghdr *msg,
-				  int size)
-{
-  return 0; 
-}
-
-static int compsec_socket_recvmsg(struct socket *sock, struct msghdr *msg,
-				  int size, int flags)
-{
-  return 0; 
-}
-
-static int compsec_socket_getsockname(struct socket *sock)
-{
-  return 0;
-}
-
-static int compsec_socket_getpeername(struct socket *sock)
-{
-  return 0;
-}
-
-static int compsec_socket_setsockopt(struct socket *sock, int level, int optname)
-{
-  return 0;
-}
-
-static int compsec_socket_getsockopt(struct socket *sock, int level,
-				     int optname)
-{
-  return 0;
-}
-
-static int compsec_socket_shutdown(struct socket *sock, int how)
-{
-  return 0;
-}
-
-static int compsec_socket_unix_stream_connect(struct sock *sock,
-					      struct sock *other,
-					      struct sock *newsk)
-{
-  return 0;
-}
-
-static int compsec_socket_unix_may_send(struct socket *sock,
-					struct socket *other)
-{
-  return 0;
-}
-
-
-
-static int compsec_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb)
-{
-  return 0;
-}
-
+static int compsec_socket_bind(struct socket *sock, struct sockaddr *address, int addrlen) COMPSEC_RET_0
+static int compsec_socket_connect(struct socket *sock, struct sockaddr *address, int addrlen) COMPSEC_RET_0
+static int compsec_socket_listen(struct socket *sock, int backlog) COMPSEC_RET_0
+static int compsec_socket_accept(struct socket *sock, struct socket *newsock) COMPSEC_RET_0
+static int compsec_socket_sendmsg(struct socket *sock, struct msghdr *msg, int size) COMPSEC_RET_0
+static int compsec_socket_recvmsg(struct socket *sock, struct msghdr *msg, int size, int flags) COMPSEC_RET_0
+static int compsec_socket_getsockname(struct socket *sock) COMPSEC_RET_0
+static int compsec_socket_getpeername(struct socket *sock) COMPSEC_RET_0
+static int compsec_socket_setsockopt(struct socket *sock, int level, int optname) COMPSEC_RET_0
+static int compsec_socket_getsockopt(struct socket *sock, int level, int optname) COMPSEC_RET_0
+static int compsec_socket_shutdown(struct socket *sock, int how) COMPSEC_RET_0
+static int compsec_socket_unix_stream_connect(struct sock *sock, struct sock *other, struct sock *newsk) COMPSEC_RET_0
+static int compsec_socket_unix_may_send(struct socket *sock, struct socket *other) COMPSEC_RET_0
+static int compsec_socket_sock_rcv_skb(struct sock *sk, struct sk_buff *skb) COMPSEC_RET_0
 static int compsec_socket_getpeersec_stream(struct socket *sock, char __user *optval,
-					    int __user *optlen, unsigned len)
-{
-  return 0;
-}
+					    int __user *optlen, unsigned len) COMPSEC_RET_0
+static int compsec_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid) COMPSEC_RET_0
+static int compsec_sk_alloc_security(struct sock *sk, int family, gfp_t priority) COMPSEC_RET_0
+static void compsec_sk_free_security(struct sock *sk) {}
+static void compsec_sk_clone_security(const struct sock *sk, struct sock *newsk) {}
+static void compsec_sk_getsecid(struct sock *sk, u32 *secid) {}
+static void compsec_sock_graft(struct sock *sk, struct socket *parent) {}
+static int compsec_inet_conn_request(struct sock *sk, struct sk_buff *skb, struct request_sock *req) COMPSEC_RET_0
+static void compsec_inet_csk_clone(struct sock *newsk, const struct request_sock *req) {}
+static void compsec_inet_conn_established(struct sock *sk, struct sk_buff *skb) {}
+static int compsec_secmark_relabel_packet(u32 sid) COMPSEC_RET_0
+static void compsec_secmark_refcount_inc(void) {}
+static void compsec_secmark_refcount_dec(void) {}
+static void compsec_req_classify_flow(const struct request_sock *req, struct flowi *fl) {}
+static int compsec_tun_dev_create(void) COMPSEC_RET_0
+static void compsec_tun_dev_post_create(struct sock *sk) {}
+static int compsec_tun_dev_attach(struct sock *sk) COMPSEC_RET_0
 
-static int compsec_socket_getpeersec_dgram(struct socket *sock, struct sk_buff *skb, u32 *secid)
-{
-  return 0;
-}
+/* ---------------------------------------------------------------------------------------------- */
 
-static int compsec_sk_alloc_security(struct sock *sk, int family, gfp_t priority)
-{
-  return 0;
-}
-
-static void compsec_sk_free_security(struct sock *sk)
-{
-}
-
-static void compsec_sk_clone_security(const struct sock *sk, struct sock *newsk)
-{
-}
-
-static void compsec_sk_getsecid(struct sock *sk, u32 *secid)
-{
-}
-
-static void compsec_sock_graft(struct sock *sk, struct socket *parent)
-{
-}
-
-static int compsec_inet_conn_request(struct sock *sk, struct sk_buff *skb,
-				     struct request_sock *req)
-{
-  return 0; 
-}
-
-static void compsec_inet_csk_clone(struct sock *newsk,
-				   const struct request_sock *req)
-{
-}
-
-static void compsec_inet_conn_established(struct sock *sk, struct sk_buff *skb)
-{
-}
-
-static int compsec_secmark_relabel_packet(u32 sid)
-{
-  return 0; 
-}
-
-static void compsec_secmark_refcount_inc(void)
-{
-}
-
-static void compsec_secmark_refcount_dec(void)
-{
-}
-
-static void compsec_req_classify_flow(const struct request_sock *req,
-				      struct flowi *fl)
-{
-}
-
-static int compsec_tun_dev_create(void)
-{
-  return 0;
-}
-
-static void compsec_tun_dev_post_create(struct sock *sk)
-{
-}
-
-static int compsec_tun_dev_attach(struct sock *sk)
-{
-  return 0;
-}
-
-
-
-
-
-static int compsec_netlink_send(struct sock *sk, struct sk_buff *skb)
-{
-  return 0;
-}
-
-static int compsec_netlink_recv(struct sk_buff *skb, int capability)
-{
-  return 0;
-}
-
-
-static int compsec_msg_msg_alloc_security(struct msg_msg *msg)
-{
-  return 0;
-}
-
-static void compsec_msg_msg_free_security(struct msg_msg *msg)
-{
-	
-}
-
+static int compsec_netlink_send(struct sock *sk, struct sk_buff *skb) COMPSEC_RET_0
+static int compsec_netlink_recv(struct sk_buff *skb, int capability) COMPSEC_RET_0
+static int compsec_msg_msg_alloc_security(struct msg_msg *msg) COMPSEC_RET_0
+static void compsec_msg_msg_free_security(struct msg_msg *msg) {}
 /* message queue security operations */
-static int compsec_msg_queue_alloc_security(struct msg_queue *msq)
-{
-  return 0;
-}
-
-static void compsec_msg_queue_free_security(struct msg_queue *msq)
-{
-
-}
-
-static int compsec_msg_queue_associate(struct msg_queue *msq, int msqflg)
-{
-  return 0;
-}
-
-static int compsec_msg_queue_msgctl(struct msg_queue *msq, int cmd)
-{
-  return 0; 
-}
-
-static int compsec_msg_queue_msgsnd(struct msg_queue *msq, struct msg_msg *msg, int msqflg)
-{
-  return 0;
-}
-
+static int compsec_msg_queue_alloc_security(struct msg_queue *msq) COMPSEC_RET_0
+static void compsec_msg_queue_free_security(struct msg_queue *msq) {}
+static int compsec_msg_queue_associate(struct msg_queue *msq, int msqflg) COMPSEC_RET_0
+static int compsec_msg_queue_msgctl(struct msg_queue *msq, int cmd) COMPSEC_RET_0
+static int compsec_msg_queue_msgsnd(struct msg_queue *msq, struct msg_msg *msg, int msqflg) COMPSEC_RET_0
 static int compsec_msg_queue_msgrcv(struct msg_queue *msq, struct msg_msg *msg,
-				    struct task_struct *target,
-				    long type, int mode)
-{
-  return 0; 
-}
-
+				    struct task_struct *target, long type, int mode) COMPSEC_RET_0
 /* Shared Memory security operations */
-static int compsec_shm_alloc_security(struct shmid_kernel *shp)
-{
-  return 0;
-}
-
-static void compsec_shm_free_security(struct shmid_kernel *shp)
-{
-}
-
-static int compsec_shm_associate(struct shmid_kernel *shp, int shmflg)
-{
-  return 0;
-}
-
+static int compsec_shm_alloc_security(struct shmid_kernel *shp) COMPSEC_RET_0
+static void compsec_shm_free_security(struct shmid_kernel *shp) {}
+static int compsec_shm_associate(struct shmid_kernel *shp, int shmflg) COMPSEC_RET_0
 /* Note, at this point, shp is locked down */
-static int compsec_shm_shmctl(struct shmid_kernel *shp, int cmd)
-{
-  return 0;
-}
-
+static int compsec_shm_shmctl(struct shmid_kernel *shp, int cmd) COMPSEC_RET_0
 static int compsec_shm_shmat(struct shmid_kernel *shp,
-			     char __user *shmaddr, int shmflg)
-{
-  return 0;
-}
-
+			     char __user *shmaddr, int shmflg) COMPSEC_RET_0
 /* Semaphore security operations */
-static int compsec_sem_alloc_security(struct sem_array *sma)
-{
-  return 0;
-}
-
-static void compsec_sem_free_security(struct sem_array *sma)
-{
-}
-
-static int compsec_sem_associate(struct sem_array *sma, int semflg)
-{
-  return 0;
-}
-
+static int compsec_sem_alloc_security(struct sem_array *sma) COMPSEC_RET_0
+static void compsec_sem_free_security(struct sem_array *sma) {}
+static int compsec_sem_associate(struct sem_array *sma, int semflg) COMPSEC_RET_0
 /* Note, at this point, sma is locked down */
-static int compsec_sem_semctl(struct sem_array *sma, int cmd)
-{
-  return 0;
-}
-
+static int compsec_sem_semctl(struct sem_array *sma, int cmd) COMPSEC_RET_0
 static int compsec_sem_semop(struct sem_array *sma,
-			     struct sembuf *sops, unsigned nsops, int alter)
-{
-  return 0;
-}
+			     struct sembuf *sops, unsigned nsops, int alter) COMPSEC_RET_0
+static int compsec_ipc_permission(struct kern_ipc_perm *ipcp, short flag) COMPSEC_RET_0
+static void compsec_ipc_getsecid(struct kern_ipc_perm *ipcp, u32 *secid) {}
+static void compsec_d_instantiate(struct dentry *dentry, struct inode *inode) {}
+static int compsec_getprocattr(struct task_struct *p, char *name, char **value) COMPSEC_RET_0
+static int compsec_setprocattr(struct task_struct *p, char *name, void *value, size_t size) COMPSEC_RET_0
+static int compsec_secid_to_secctx(u32 secid, char **secdata, u32 *seclen) COMPSEC_RET_0
+static int compsec_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid) COMPSEC_RET_0
+static void compsec_release_secctx(char *secdata, u32 seclen) {}
+static int compsec_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxlen) COMPSEC_RET_0
+static int compsec_inode_setsecctx(struct dentry *dentry, void *ctx, u32 ctxlen) COMPSEC_RET_0
+static int compsec_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen) COMPSEC_RET_0
 
-static int compsec_ipc_permission(struct kern_ipc_perm *ipcp, short flag)
-{
-  return 0;
-}
-
-static void compsec_ipc_getsecid(struct kern_ipc_perm *ipcp, u32 *secid)
-{
-}
-
-static void compsec_d_instantiate(struct dentry *dentry, struct inode *inode)
-{
-}
-
-static int compsec_getprocattr(struct task_struct *p,
-			       char *name, char **value)
-{
-  return 0;
-}
-
-static int compsec_setprocattr(struct task_struct *p,
-			       char *name, void *value, size_t size)
-{
-  return 0;
-}
-
-static int compsec_secid_to_secctx(u32 secid, char **secdata, u32 *seclen)
-{
-  return 0;
-}
-
-static int compsec_secctx_to_secid(const char *secdata, u32 seclen, u32 *secid)
-{
-  return 0;
-}
-
-static void compsec_release_secctx(char *secdata, u32 seclen)
-{
-}
-
-/*
- *	called with inode->i_mutex locked
- */
-static int compsec_inode_notifysecctx(struct inode *inode, void *ctx, u32 ctxlen)
-{
-  return 0;
-}
-
-/*
- *	called with inode->i_mutex locked
- */
-static int compsec_inode_setsecctx(struct dentry *dentry, void *ctx, u32 ctxlen)
-{
-  return 0;
-}
-
-static int compsec_inode_getsecctx(struct inode *inode, void **ctx, u32 *ctxlen)
-{
-  return 0;
-}
 #ifdef CONFIG_KEYS
-
-static int compsec_key_alloc(struct key *k, const struct cred *cred,
-			     unsigned long flags)
-{
-  return 0;
-}
-
-static void compsec_key_free(struct key *k)
-{
-}
-
-static int compsec_key_permission(key_ref_t key_ref,
-				  const struct cred *cred,
-				  key_perm_t perm)
-{
-  return 0;
-}
-
-static int compsec_key_getsecurity(struct key *key, char **_buffer)
-{
-  return 0;
-}
-
+static int compsec_key_alloc(struct key *k, const struct cred *cred, unsigned long flags) COMPSEC_RET_0
+static int compsec_key_permission(key_ref_t key_ref, const struct cred *cred, key_perm_t perm) COMPSEC_RET_0
+static int compsec_key_getsecurity(struct key *key, char **_buffer) COMPSEC_RET_0
+static void compsec_key_free(struct key *k) {}
 #endif
 
 static struct security_operations compsec_ops = {
@@ -1212,25 +650,22 @@ static struct security_operations compsec_ops = {
 
 static __init int compsec_init(void)
 {
-  if (!security_module_enable(&compsec_ops)) {
-    printk("compsec: disabled at boot.\n");
+    if (!security_module_enable(&compsec_ops)) {
+        printk("compsec: disabled at boot.\n");
+        return 0;
+    }
+
+    if (register_security(&compsec_ops)) {
+        panic("compsec: Unable to register compsec with kernel.\n");
+    } else {
+        printk("compsec: registered with the kernel\n");
+    }
     return 0;
-  }
-
-  if (register_security(&compsec_ops))
-    panic("compsec: Unable to register compsec with kernel.\n");
-  else 
-    printk("compsec: registered with the kernel\n");
-
-  return 0;
 }
 
-static void __exit compsec_exit (void)
-{	
-  return;
+static void __exit compsec_exit(void) {
+
 }
-
-
 
 module_init (compsec_init);
 module_exit (compsec_exit);
